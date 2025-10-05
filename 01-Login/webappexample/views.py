@@ -37,9 +37,10 @@ def callback(request):
 
 
 def login(request):
-    return oauth.auth0.authorize_redirect(
-        request, request.build_absolute_uri(reverse("callback"))
+    callback_url = settings.AUTH0_CALLBACK_URL or request.build_absolute_uri(
+        reverse("callback")
     )
+    return oauth.auth0.authorize_redirect(request, callback_url)
 
 
 def logout(request):
