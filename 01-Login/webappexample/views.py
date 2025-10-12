@@ -1,4 +1,6 @@
 import json
+import base64
+from authlib.jose import jwt
 from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from django.shortcuts import redirect, render, redirect
@@ -18,14 +20,61 @@ oauth.register(
 )
 
 
-def index(request):
+def _safe_b64_json(segment):
+    """Decode a JWT segment (base64url) into JSON dict or return None.
+    Used only for display; signature is not re-validated here because Authlib
+    already validated tokens when obtained. Any decode errors are swallowed.
+    """
+    if not segment:
+        return None
+    try:
+        # Add padding for base64url if needed
+        pad = '=' * (-len(segment) % 4)
+        data = base64.urlsafe_b64decode(segment + pad)
+        return json.loads(data.decode("utf-8"))
+    except Exception:
+        return None
 
+
+def _decode_id_token(id_token):
+    if not id_token:
+        return {}
+    parts = id_token.split('.')
+    header = _safe_b64_json(parts[0]) if len(parts) > 0 else None
+    payload = _safe_b64_json(parts[1]) if len(parts) > 1 else None
+    # signature (parts[2]) is binary; we don't decode for display beyond length
+    sig_len = len(parts[2]) * 3 // 4 if len(parts) > 2 else 0
+    return {
+        "header": header,
+        "payload": payload,
+        "signature_bytes_estimate": sig_len,
+    }
+
+
+def index(request):
+    token = request.session.get("user") or {}
+    id_token = token.get("id_token")
+    decoded_id = _decode_id_token(id_token) if id_token else {}
+    # Provide a more compact raw token view
+    raw_json = json.dumps(token, indent=2) if token else '{}'
+    # Derive a display name safely
+    display_name = (
+        token.get("userinfo", {}).get("nickname")
+        or (decoded_id.get("payload") or {}).get("nickname")
+        or token.get("userinfo", {}).get("email")
+        or (decoded_id.get("payload") or {}).get("email")
+        or "User"
+    )
     return render(
         request,
         "index.html",
         context={
-            "session": request.session.get("user"),
-            "pretty": json.dumps(request.session.get("user"), indent=4),
+            "session": token,
+            "raw_token_json": raw_json,
+            "decoded_id_token": json.dumps(decoded_id, indent=2),
+            "id_token": id_token,
+            "access_token": token.get("access_token"),
+            "display_name": display_name,
         },
     )
 
@@ -37,10 +86,31 @@ def callback(request):
 
 
 def login(request):
+    """Start Auth0 login.
+
+    Enhancements:
+    - Accept an email (via POST form field or query param `email`).
+    - Pass it to Auth0 using the OpenID Connect `login_hint` param so the
+      Universal Login email/identifier field is pre-populated.
+    """
+    # Accept email from POST (preferred) or fallback to query string
+    email = None
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip() or None
+    else:
+        email = request.GET.get("email", "").strip() or None
+
     callback_url = settings.AUTH0_CALLBACK_URL or request.build_absolute_uri(
         reverse("callback")
     )
-    return oauth.auth0.authorize_redirect(request, callback_url)
+
+    extra_params = {}
+    if email:
+        extra_params["login_hint"] = email
+        # Optionally store for later UX usage (not required for Auth0 itself)
+        request.session["prefill_email"] = email
+
+    return oauth.auth0.authorize_redirect(request, callback_url, **extra_params)
 
 
 def logout(request):

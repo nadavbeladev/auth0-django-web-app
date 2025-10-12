@@ -1,16 +1,217 @@
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Auth0 Example</title>
-  </head>
-  <body>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Auth0 Example</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    body {
+
+      /* Stack cards vertically instead of side-by-side */
+      .grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+
+      margin: 0;
+      padding: 2rem;
+      background: linear-gradient(135deg, #1f2763, #3a0d5e 60%, #091d2b);
+      color: #f5f7fa;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0 0 1rem;
+      font-weight: 600;
+    }
+
+    a {
+      color: #8ab4ff;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 18px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    form input[type=email] {
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #4b5b85;
+      border-radius: 6px;
+      width: 260px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    form button {
+      padding: 0.55rem 1rem;
+      border: 0;
+      border-radius: 6px;
+      background: #6366f1;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    form button:hover {
+      background: #818cf8;
+    }
+
+    pre {
+      margin: 0;
+      overflow: auto;
+      max-height: 320px;
+      padding: 0.75rem 1rem;
+      background: #0f172a;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      line-height: 1.2;
+    }
+
+    .grid {
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .token-badge {
+      display: inline-block;
+      background: #334155;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-right: 0.4rem;
+    }
+
+    .pair {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    .small {
+      font-size: 0.7rem;
+      opacity: 0.85;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #64748b;
+      color: #e2e8f0;
+      padding: .45rem .9rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: .85rem;
+    }
+
+    .btn-outline:hover {
+      background: #1e293b;
+    }
+
+    .section-title {
+      font-size: .85rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      opacity: .75;
+      margin-bottom: .5rem;
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.65rem;
+      text-align: center;
+      opacity: .6;
+    }
+
+    .wrap {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
     {% if session %}
-    <h1>Welcome {{session.userinfo.name}}!</h1>
-    <p><a href="{% url 'logout' %}" id="qsLogoutBtn">Logout</a></p>
-    <div><pre>{{pretty}}</pre></div>
+    <header>
+      <h1>Welcome {{ display_name }} 👋</h1>
+      <a class="btn-outline" href="{% url 'logout' %}" id="qsLogoutBtn">Logout</a>
+    </header>
+    <div class="grid">
+      <div class="card">
+        <div class="section-title">Token Bundle (Raw from Session)</div>
+        <pre>{{raw_token_json}}</pre>
+      </div>
+      <div class="card">
+        <div class="section-title">ID Token (JWT)</div>
+        {% if id_token %}
+        <div class="small" style="margin-bottom:.5rem;">Segments: <span class="token-badge">header</span><span
+            class="token-badge">payload</span><span class="token-badge">signature</span></div>
+        <pre class="mono" style="word-break:break-all;">{{id_token}}</pre>
+        {% else %}
+        <p class="small">No id_token present.</p>
+        {% endif %}
+      </div>
+      <div class="card">
+        <div class="section-title">Decoded ID Token</div>
+        <pre>{{decoded_id_token}}</pre>
+      </div>
+      <div class="card">
+        <div class="section-title">Access Token (Raw)</div>
+        {% if access_token %}
+        <pre class="mono" style="word-break:break-all;">{{access_token}}</pre>
+        {% else %}
+        <p class="small">No access_token (you may need an audience).</p>
+        {% endif %}
+      </div>
+    </div>
     {% else %}
-    <h1 id="profileDropDown">Welcome!</h1>
-    <p><a href="{% url 'login' %}" id="qsLoginBtn">Login</a></p>
+    <div class="card" style="max-width:480px;">
+      <h1 style="margin-top:0;">Welcome!</h1>
+      <p style="font-size:.9rem;line-height:1.35;">Enter your email and we'll start the secure login flow. The Auth0
+        login page will pre-fill it so you only need to add your password (or use a social provider).</p>
+      <form method="post" action="{% url 'login' %}"
+        style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-end;">
+        {% csrf_token %}
+        <div style="flex:1; min-width:230px;">
+          <label for="email"
+            style="display:block;font-size:.7rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Email</label>
+          <input type="email" id="email" name="email" required value="{{request.session.prefill_email|default:''}}" />
+        </div>
+        <div>
+          <button type="submit" id="qsLoginBtn">Login</button>
+        </div>
+      </form>
+    </div>
     {% endif %}
-  </body>
+  </div>
+</body>
+
 </html>
