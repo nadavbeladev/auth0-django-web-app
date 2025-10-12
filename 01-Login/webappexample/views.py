@@ -4,6 +4,7 @@ from authlib.jose import jwt
 from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from django.shortcuts import redirect, render, redirect
+from django.http import HttpResponse
 from django.urls import reverse
 from urllib.parse import quote_plus, urlencode
 
@@ -82,6 +83,30 @@ def index(request):
 def callback(request):
     token = oauth.auth0.authorize_access_token(request)
     request.session["user"] = token
+    # If this was initiated from a popup flow, return a minimal page that notifies the opener then closes.
+    if request.session.pop("popup_login", None):
+        index_url = request.build_absolute_uri(reverse("index"))
+        html = f"""
+<!DOCTYPE html><html><head><title>Login Complete</title></head>
+<body style='font-family:system-ui; margin:2rem; text-align:center; color:#333;'>
+    <p>Authentication complete. You can close this window.</p>
+    <script>
+        (function() {{
+            try {{
+                if (window.opener) {{
+                    window.opener.postMessage({{ type: 'auth0-login-complete' }}, '*');
+                    setTimeout(function() {{ window.close(); }}, 10);
+                }} else {{
+                    window.location = {index_url!r};
+                }}
+            }} catch(e) {{
+                window.location = {index_url!r};
+            }}
+        }})();
+    </script>
+</body></html>
+"""
+        return HttpResponse(html)
     return redirect(request.build_absolute_uri(reverse("index")))
 
 
@@ -99,6 +124,11 @@ def login(request):
         email = request.POST.get("email", "").strip() or None
     else:
         email = request.GET.get("email", "").strip() or None
+
+    # Detect popup mode (query or POST) and remember it for callback
+    popup_mode = (request.GET.get("popup") or request.POST.get("popup")) == "1"
+    if popup_mode:
+        request.session["popup_login"] = True
 
     callback_url = settings.AUTH0_CALLBACK_URL or request.build_absolute_uri(
         reverse("callback")
