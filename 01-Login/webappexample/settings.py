@@ -111,12 +111,14 @@ AUTH0_DOMAIN = os.environ.get("AUTH0_DOMAIN")
 AUTH0_CLIENT_ID = os.environ.get("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = os.environ.get("AUTH0_CLIENT_SECRET")
 AUTH0_CALLBACK_URL = os.environ.get("AUTH0_CALLBACK_URL")
+AUTH0_ORGANIZATION_ID = os.environ.get("AUTH0_ORGANIZATION_ID")
 
 # Fail fast with a clear error message instead of later DNS resolution errors
 _missing = [name for name, val in [
     ("AUTH0_DOMAIN", AUTH0_DOMAIN),
     ("AUTH0_CLIENT_ID", AUTH0_CLIENT_ID),
     ("AUTH0_CLIENT_SECRET", AUTH0_CLIENT_SECRET),
+    ("AUTH0_ORGANIZATION_ID", AUTH0_ORGANIZATION_ID),
 ] if not val]
 if _missing:
     raise RuntimeError(

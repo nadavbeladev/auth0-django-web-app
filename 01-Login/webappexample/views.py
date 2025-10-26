@@ -15,7 +15,7 @@ oauth.register(
     client_id=settings.AUTH0_CLIENT_ID,
     client_secret=settings.AUTH0_CLIENT_SECRET,
     client_kwargs={
-        "scope": "openid profile email",
+        "scope": "openid profile email offline_access",
     },
     server_metadata_url=f"https://{settings.AUTH0_DOMAIN}/.well-known/openid-configuration",
 )
@@ -81,7 +81,10 @@ def index(request):
 
 
 def callback(request):
-    token = oauth.auth0.authorize_access_token(request)
+    token = oauth.auth0.authorize_access_token(
+        request,
+        organization=settings.AUTH0_ORGANIZATION_ID
+    )
     request.session["user"] = token
     # If this was initiated from a popup flow, return a minimal page that notifies the opener then closes.
     if request.session.pop("popup_login", None):
@@ -134,7 +137,9 @@ def login(request):
         reverse("callback")
     )
 
-    extra_params = {}
+    extra_params = {
+        "organization": settings.AUTH0_ORGANIZATION_ID
+    }
     if email:
         extra_params["login_hint"] = email
         # Optionally store for later UX usage (not required for Auth0 itself)
